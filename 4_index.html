@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Mapping of Water Scarcity Hotspots in Indian Cities | EVS CA1</title>
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Leaflet CSS for Interactive GIS Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <style>
+    :root {
+      --bg: #070d1e;
+      --card-bg: #0f1938;
+      --card-hover: #162452;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Navigation */
+    header {
+      height: 70px;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 25, 56, 0.95);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand i {
+      font-size: 1.8rem;
+      color: var(--accent);
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #ffffff, #93c5fd);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: var(--text-muted);
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover, .tab-btn.active {
+      background: var(--accent);
+      color: #070d1e;
+      border-color: var(--accent);
+    }
+
+    /* Page Views Container */
+    .page-view {
+      display: none;
+      flex: 1;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .page-view.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* PAGE 1: Home Dashboard */
+    .home-container {
+      padding: 3rem 4rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .hero-banner {
+      background: linear-gradient(135deg, var(--card-bg), #162452);
+      border: 1px solid var(--border);
+      padding: 3rem;
+      border-radius: 16px;
+      margin-bottom: 2.5rem;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+    }
+
+    .hero-banner h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      background: linear-gradient(90deg, #fff, #38bdf8);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-banner p {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 800px;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      .features-grid { grid-template-columns: 1fr; }
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+    }
+
+    .feature-card i {
+      font-size: 2rem;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+
+    .feature-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* PAGE 2: Map & Simulator Layout */
+    .map-app-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      flex: 1;
+      height: calc(100vh - 70px);
+      overflow: hidden;
+    }
+
+    @media (max-width: 1024px) {
+      .map-app-layout { grid-template-columns: 1fr; height: auto; }
+    }
+
+    .sidebar {
+      background: rgba(11, 19, 43, 0.95);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .panel-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem;
+    }
+
+    .panel-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .city-select-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .city-pill {
+      background: #131f42;
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+
+    .city-pill:hover, .city-pill.active {
+      background: var(--card-hover);
+      border-color: var(--accent);
+    }
+
+    .city-pill-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .wsi-badge {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-weight: 700;
+    }
+
+    .wsi-extreme { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .wsi-high { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .wsi-moderate { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+
+    /* State Reason Box in Sidebar */
+    .state-reason-box {
+      background: rgba(56, 189, 248, 0.08);
+      border-left: 3px solid var(--accent);
+      padding: 10px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
+    .slider-group {
+      margin-bottom: 1rem;
+    }
+
+    .slider-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .slider-group label span {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .workspace {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+      min-height: 400px;
+      background: #070d1e;
+    }
+
+    .stats-overlay-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      padding: 1.2rem 1.5rem;
+      background: rgba(15, 25, 56, 0.95);
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 768px) {
+      .stats-overlay-bar { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .stat-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 1rem;
+      border-radius: 10px;
+    }
+
+    .stat-card-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .stat-card-val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #fff;
+      margin-top: 4px;
+    }
+
+    .stat-card-val.accent { color: var(--accent); }
+    .stat-card-val.danger { color: var(--danger); }
+    .stat-card-val.success { color: var(--success); }
+
+    /* PAGE 3 & 4: Details & Solutions Containers */
+    .details-container {
+      padding: 3rem 4rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .details-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 2.5rem;
+      border-radius: 16px;
+      margin-bottom: 2rem;
+    }
+
+    .details-card h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.5rem;
+      color: var(--accent);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .details-card p, .details-card li {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    .details-card ul {
+      margin-left: 1.5rem;
+      margin-top: 0.75rem;
+    }
+
+    /* Leaflet Popup Styling */
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+      background: var(--card-bg) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .leaflet-popup-content h3 {
+      color: var(--accent);
+      font-family: 'Outfit', sans-serif;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Bar with Page Switching Tabs -->
+  <header>
+    <div class="brand">
+      <i class="fa-solid fa-droplet"></i>
+      <div>
+        <div class="brand-title">Digital Mapping of Water Scarcity Hotspots in Indian Cities &bull; EVS CA1</div>
+        <div class="brand-sub">Team: Bindu (K3P26HHB47) | Sriram (K3P26HHB48) | Saurav (K3P26HHB49)</div>
+      </div>
+    </div>
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchPage('home', this)"><i class="fa-solid fa-house"></i> Home</button>
+      <button class="tab-btn" onclick="switchPage('mapPage', this)"><i class="fa-solid fa-map-location-dot"></i> GIS Map & Simulator</button>
+      <button class="tab-btn" onclick="switchPage('solutionsPage', this)"><i class="fa-solid fa-lightbulb"></i> Scarcity & Solutions</button>
+      <button class="tab-btn" onclick="switchPage('detailsPage', this)"><i class="fa-solid fa-file-lines"></i> Project Details</button>
+    </div>
+  </header>
+
+  <!-- ================= PAGE 1: HOME DASHBOARD ================= -->
+  <div id="home" class="page-view active">
+    <div class="home-container">
+      <div class="hero-banner">
+        <h1>Digital Mapping of Water Scarcity Hotspots in Indian Cities</h1>
+        <p>
+          Welcome to the official Spatial Hydro-Informatics Decision Support System developed for Environmental Studies (EVS CA1). Tap any state in the sidebar to filter its major cities and inspect state-wise water scarcity reasons.
+        </p>
+        <button class="tab-btn active" style="display: inline-flex; padding: 12px 24px; font-size: 1rem;" onclick="switchPage('mapPage', document.querySelectorAll('.tab-btn')[1])">
+          <i class="fa-solid fa-compass"></i> Launch Interactive GIS Map
+        </button>
+      </div>
+
+      <h2 style="font-family: 'Outfit', sans-serif; margin-bottom: 1.5rem; font-size: 1.3rem;">Project Navigation Hub</h2>
+      <div class="features-grid">
+        <div class="feature-card" onclick="switchPage('mapPage', document.querySelectorAll('.tab-btn')[1])">
+          <i class="fa-solid fa-map-marked-alt"></i>
+          <h3>Interactive GIS Map</h3>
+          <p>Tap any state in the sidebar to view major cities, scarcity reasons, and live WSI metrics[cite: 1, 2].</p>
+        </div>
+        <div class="feature-card" onclick="switchPage('solutionsPage', document.querySelectorAll('.tab-btn')[2])">
+          <i class="fa-solid fa-droplet-slash"></i>
+          <h3>Scarcity & Solutions</h3>
+          <p>Read detailed briefs on why water scarcity occurs across India and explore engineering remediation pillars[cite: 1].</p>
+        </div>
+        <div class="feature-card" onclick="switchPage('detailsPage', document.querySelectorAll('.tab-btn')[3])">
+          <i class="fa-solid fa-book-open"></i>
+          <h3>Project Report</h3>
+          <p>Review comprehensive methodology formulas, evaluation metrics, and team metadata[cite: 1].</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PAGE 2: INTERACTIVE MAP & SIMULATOR ================= -->
+  <div id="mapPage" class="page-view">
+    <div class="map-app-layout">
+      <!-- Sidebar Controls -->
+      <aside class="sidebar">
+        <!-- State-Wise Overview List -->
+        <div class="panel-section">
+          <div class="panel-title"><i class="fa-solid fa-globe"></i> State-Wise Filter & Reasons</div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">Tap any state to view reason & major cities:</p>
+          <div class="city-select-list" id="stateSelectList">
+            <!-- Populated via JS -->
+          </div>
+          <div id="selectedStateReason" class="state-reason-box" style="display: none;">
+            <!-- Dynamic reason display -->
+          </div>
+        </div>
+
+        <!-- Target Hotspot Cities -->
+        <div class="panel-section">
+          <div class="panel-title"><i class="fa-solid fa-city"></i> Major Cities & Hotspots</div>
+          <div class="city-select-list" id="citySelectList">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- Policy Simulator -->
+        <div class="panel-section">
+          <div class="panel-title"><i class="fa-solid fa-sliders"></i> Policy Simulator</div>
+          <div class="slider-group">
+            <label>Rainwater Harvesting (RWH): <span id="rwhVal">40</span>%</label>
+            <input type="range" id="sliderRWH" min="0" max="100" value="40" oninput="runSimulation()">
+          </div>
+          <div class="slider-group">
+            <label>Wastewater Recycling: <span id="recycleVal">35</span>%</label>
+            <input type="range" id="sliderRecycle" min="0" max="100" value="35" oninput="runSimulation()">
+          </div>
+          <div class="slider-group">
+            <label>Leak Reduction (NRW): <span id="leakVal">20</span>%</label>
+            <input type="range" id="sliderLeak" min="0" max="50" value="20" oninput="runSimulation()">
+          </div>
+        </div>
+      </aside>
+
+      <!-- Workspace & Map -->
+      <div class="workspace" style="position: relative;">
+        <div id="map"></div>
+
+        <!-- Map Legend Box -->
+        <div style="position: absolute; bottom: 85px; left: 20px; z-index: 1000; background: rgba(15, 25, 56, 0.95); border: 1px solid var(--border); padding: 10px 14px; border-radius: 8px; font-size: 0.78rem; backdrop-filter: blur(5px);">
+          <div style="font-weight: 700; color: var(--accent); margin-bottom: 5px;">WSI Severity Index</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
+            <span style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%; display: inline-block;"></span> <span>Extreme Stress (90+)[cite: 2]</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
+            <span style="width: 12px; height: 12px; background: #f59e0b; border-radius: 50%; display: inline-block;"></span> <span>High Stress (80-89)[cite: 2]</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="width: 12px; height: 12px; background: #38bdf8; border-radius: 50%; display: inline-block;"></span> <span>Moderate (&lt;80)[cite: 2]</span>
+          </div>
+        </div>
+
+        <div class="stats-overlay-bar">
+          <div class="stat-card">
+            <div class="stat-card-title">Active Hotspot</div>
+            <div class="stat-card-val accent" id="statCityName">Bengaluru</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title">Vulnerability Score</div>
+            <div class="stat-card-val danger" id="statWSI">92 / 100</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title">Daily Deficit</div>
+            <div class="stat-card-val danger" id="statDeficit">650 MLD</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title">Simulated Supply</div>
+            <div class="stat-card-val success" id="statLPCD">98 LPCD</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PAGE 3: WATER SCARCITY DETAILS & SOLUTIONS ================= -->
+  <div id="solutionsPage" class="page-view">
+    <div class="details-container">
+      <div class="hero-banner" style="padding: 2rem; margin-bottom: 2rem;">
+        <h1 style="font-size: 2rem;"><i class="fa-solid fa-droplet-slash"></i> Water Scarcity: Causes & Engineering Solutions</h1>
+        <p>A comprehensive environmental breakdown compiled for EVS CA1[cite: 1].</p>
+      </div>
+
+      <div class="details-card">
+        <h2><i class="fa-solid fa-triangle-exclamation"></i> Why is Water Scarcity Accelerating in India?</h2>
+        <p>
+          India supports <strong>18% of the global population</strong> but possesses only <strong>4% of the world's freshwater resources</strong>. The crisis is compounded by several structural and climatic factors:
+        </p>
+        <ul style="margin-top: 10px;">
+          <li><strong>Over-Extraction of Groundwater:</strong> Unregulated borewell drilling for intensive agriculture (especially paddy and wheat) has depleted confined rock aquifers.</li>
+          <li><strong>Rapid Urbanization & Concretization:</strong> Unplanned metropolitan expansion replaces natural soil percolation beds with concrete, preventing rainwater infiltration.</li>
+          <li><strong>Climate Change & Monsoonal Variability:</strong> Erratic rainfall patterns, shifting monsoon dates, and glacial retreat in the Himalayas reduce perennial river base flows.</li>
+          <li><strong>Non-Revenue Water (NRW) Losses:</strong> Municipal distribution networks lose 35% to 45% of treated drinking water due to pipeline leaks.</li>
+        </ul>
+      </div>
+
+      <div class="details-card">
+        <h2><i class="fa-solid fa-screwdriver-wrench"></i> 4 Pillars of Urban Water Remediation & Solutions</h2>
+        <p>To transition from impending "Day Zero" crises to hydrological self-sufficiency, cities must implement these 4 pillars:</p>
+        
+        <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem;">
+          <div style="background: rgba(56, 189, 248, 0.05); border: 1px solid var(--border); padding: 1.2rem; border-radius: 10px;">
+            <strong style="color: var(--accent); font-size: 1.05rem;"><i class="fa-solid fa-city"></i> 1. Sponge Cities & SUDS Infrastructure</strong>
+            <p style="margin-top: 5px;">Replacing solid asphalt with permeable pavements, bioswales, and constructed wetlands that absorb 70-80% of storm runoff.</p>
+          </div>
+
+          <div style="background: rgba(56, 189, 248, 0.05); border: 1px solid var(--border); padding: 1.2rem; border-radius: 10px;">
+            <strong style="color: var(--accent); font-size: 1.05rem;"><i class="fa-solid fa-water"></i> 2. Managed Aquifer Recharge (MAR)</strong>
+            <p style="margin-top: 5px;">Directing rooftop rainwater and treated storm runoff into deep recharge shafts and defunct borewells.</p>
+          </div>
+
+          <div style="background: rgba(56, 189, 248, 0.05); border: 1px solid var(--border); padding: 1.2rem; border-radius: 10px;">
+            <strong style="color: var(--accent); font-size: 1.05rem;"><i class="fa-solid fa-recycle"></i> 3. Decentralized STPs & Dual Plumbing</strong>
+            <p style="margin-top: 5px;">Mandating on-site wastewater recycling plants in residential complexes (>50 units) for toilet flushing and gardening.</p>
+          </div>
+
+          <div style="background: rgba(56, 189, 248, 0.05); border: 1px solid var(--border); padding: 1.2rem; border-radius: 10px;">
+            <strong style="color: var(--accent); font-size: 1.05rem;"><i class="fa-solid fa-microchip"></i> 4. IoT Smart Water Metering & Acoustic Sensors</strong>
+            <p style="margin-top: 5px;">Deploying smart acoustic noise loggers across municipal pipelines to pinpoint underground leaks instantly.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PAGE 4: PROJECT DETAILS & REPORT ================= -->
+  <div id="detailsPage" class="page-view">
+    <div class="details-container">
+      <div class="hero-banner" style="padding: 2rem; margin-bottom: 2rem;">
+        <h1 style="font-size: 2rem;">Project Report & Documentation</h1>
+        <p>EVS Continuous Assessment 1 (CA1) &bull; Group Project</p>
+      </div>
+
+      <div class="details-card">
+        <h2><i class="fa-solid fa-user-graduate"></i> Academic & Group Team Details</h2>
+        <p><strong>Course:</strong> Environmental Studies (EVS CA1)</p>
+        <p><strong>University:</strong> Lovely Professional University (LPU)[cite: 1]</p>
+        <p style="margin-top: 10px;"><strong>Group Members:</strong></p>
+        <ul style="margin-top: 5px;">
+          <li><strong>Saurav</strong> – Roll Number: K3P26HHB49 (Lead / Presenter)[cite: 1]</li>
+          <li><strong>[Member 2]</strong> – Roll Number: [K3P26HHB47][cite: 1]</li>
+          <li><strong>[Member 3]</strong> – Roll Number: [K3P26HHB48][cite: 1]</li>
+        </ul>
+      </div>
+
+      <div class="details-card">
+        <h2><i class="fa-solid fa-calculator"></i> Multi-Criteria Water Scarcity Index (WSI) Formula</h2>
+        <p>To quantify urban vulnerability objectively, we utilize a weighted spatial decision index:</p>
+        <div style="background: var(--bg); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; font-family: monospace; color: #38bdf8; margin: 1rem 0;">
+          WSI = (0.30 &times; GWE) + (0.25 &times; PCD) + (0.20 &times; DFR) + (0.15 &times; TMR) + (0.10 &times; SWL)
+        </div>
+        <ul>
+          <li><strong>GWE (30%):</strong> Groundwater Extraction Stage.</li>
+          <li><strong>PCD (25%):</strong> Per Capita Deficit against CPHEEO 135 LPCD benchmark.</li>
+          <li><strong>DFR (20%):</strong> Daily Volumetric Deficit Ratio.</li>
+          <li><strong>TMR (15%):</strong> Private Water Tanker Reliance Percentage.</li>
+          <li><strong>SWL (10%):</strong> Surface Water Encroachment & Lake Degradation.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    // Page Switcher Function
+    function switchPage(pageId, btnEl) {
+      document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      
+      document.getElementById(pageId).classList.add('active');
+      if (btnEl) btnEl.classList.add('active');
+
+      if (pageId === 'mapPage' && map) {
+        setTimeout(() => map.invalidateSize(), 200);
+      }
+    }
+
+    // Comprehensive Cities Database across all 28 States & UTs
+    const citiesData = [
+      // Andhra Pradesh
+      { id: 'visakhapatnam', state: 'Andhra Pradesh', name: 'Visakhapatnam', lat: 17.6868, lng: 83.2185, wsi: 78, status: 'High', deficit: '190 MLD', lpcd: 95, desc: 'Coastal industrial water demand and localized supply constraints.' },
+      { id: 'vijayawada', state: 'Andhra Pradesh', name: 'Vijayawada', lat: 16.5062, lng: 80.6480, wsi: 75, status: 'Moderate', deficit: '150 MLD', lpcd: 100, desc: 'Krishna river basin management and summer extraction drawdown.' },
+      
+      // Arunachal Pradesh
+      { id: 'itanagar', state: 'Arunachal Pradesh', name: 'Itanagar', lat: 27.0844, lng: 93.6053, wsi: 45, status: 'Safe', deficit: '10 MLD', lpcd: 140, desc: 'Abundant hill streams and high seasonal rainfall retention.' },
+      
+      // Assam
+      { id: 'guwahati', state: 'Assam', name: 'Guwahati', lat: 26.1445, lng: 91.7362, wsi: 58, status: 'Safe', deficit: '45 MLD', lpcd: 125, desc: 'Brahmaputra water source management and localized distribution.' },
+      
+      // Bihar
+      { id: 'patna', state: 'Bihar', name: 'Patna', lat: 25.5941, lng: 85.1376, wsi: 76, status: 'Moderate', deficit: '180 MLD', lpcd: 100, desc: 'Iron and arsenic contamination in groundwater; urban distribution.' },
+      { id: 'gaya', state: 'Bihar', name: 'Gaya', lat: 24.7914, lng: 85.0002, wsi: 81, status: 'High', deficit: '95 MLD', lpcd: 90, desc: 'Seasonal drying of Falgu river and acute summer groundwater depletion.' },
+
+      // Chhattisgarh
+      { id: 'raipur', state: 'Chhattisgarh', name: 'Raipur', lat: 21.2514, lng: 81.6296, wsi: 69, status: 'Moderate', deficit: '85 MLD', lpcd: 115, desc: 'Mahanadi basin distribution and check-dam management.' },
+
+      // Goa
+      { id: 'panaji', state: 'Goa', name: 'Panaji', lat: 15.4909, lng: 73.8278, wsi: 62, status: 'Low Stress', deficit: '25 MLD', lpcd: 130, desc: 'Coastal tourism season water pressure and localized wells.' },
+
+      // Gujarat
+      { id: 'ahmedabad', state: 'Gujarat', name: 'Ahmedabad', lat: 23.0225, lng: 72.5714, wsi: 85, status: 'High', deficit: '340 MLD', lpcd: 95, desc: 'Sabarmati river dependency and groundwater stress.' },
+      { id: 'surat', state: 'Gujarat', name: 'Surat', lat: 21.1702, lng: 72.8311, wsi: 78, status: 'Moderate', deficit: '220 MLD', lpcd: 102, desc: 'Tapi river management and industrial effluent treatment protocols.' },
+
+      // Haryana
+      { id: 'gurugram', state: 'Haryana', name: 'Gurugram', lat: 28.4595, lng: 77.0266, wsi: 91, status: 'Extreme', deficit: '320 MLD', lpcd: 84, desc: 'Heavy reliance on tanker supply and deep boring extraction.' },
+      { id: 'faridabad', state: 'Haryana', name: 'Faridabad', lat: 28.4089, lng: 77.3178, wsi: 87, status: 'High', deficit: '260 MLD', lpcd: 88, desc: 'Rapid industrial growth depleting Yamuna floodplain aquifers.' },
+
+      // Himachal Pradesh
+      { id: 'shimla', state: 'Himachal Pradesh', name: 'Shimla', lat: 31.1048, lng: 77.1734, wsi: 84, status: 'High', deficit: '23 MLD', lpcd: 65, desc: 'Himalayan spring discharge down 50%; tourism peak deficit.' },
+
+      // Jharkhand
+      { id: 'ranchi', state: 'Jharkhand', name: 'Ranchi', lat: 23.3441, lng: 85.3096, wsi: 75, status: 'Moderate', deficit: '130 MLD', lpcd: 98, desc: 'Subarnarekha river basin and plateau terrain runoff.' },
+      { id: 'bokaro', state: 'Jharkhand', name: 'Bokaro Steel City', lat: 23.6693, lng: 86.1511, wsi: 68, status: 'Moderate', deficit: '95 MLD', lpcd: 115, desc: 'Industrial water allocation from Garga Dam.' },
+
+      // Karnataka
+      { id: 'bengaluru', state: 'Karnataka', name: 'Bengaluru', lat: 12.9716, lng: 77.5946, wsi: 92, status: 'Extreme', deficit: '650 MLD', lpcd: 78, desc: 'Over 85% historical lakes encroached; deep borewells >1,500 ft; 48% tanker dependent.' },
+      { id: 'mysuru', state: 'Karnataka', name: 'Mysuru', lat: 12.2958, lng: 76.6394, wsi: 72, status: 'Moderate', deficit: '110 MLD', lpcd: 105, desc: 'Balanced lake conservation and efficient Cauvery distribution.' },
+
+      // Kerala
+      { id: 'kochi', state: 'Kerala', name: 'Kochi', lat: 9.9312, lng: 76.2673, wsi: 64, status: 'Low Stress', deficit: '50 MLD', lpcd: 120, desc: 'Backwater salinity management and heavy seasonal runoff.' },
+
+      // Madhya Pradesh
+      { id: 'indore', state: 'Madhya Pradesh', name: 'Indore', lat: 22.7196, lng: 75.8577, wsi: 78, status: 'Moderate', deficit: '160 MLD', lpcd: 108, desc: 'Narmada pipeline dependency and smart water metering adoption.' },
+      { id: 'bhopal', state: 'Madhya Pradesh', name: 'Bhopal', lat: 23.2599, lng: 77.4126, wsi: 74, status: 'Moderate', deficit: '140 MLD', lpcd: 110, desc: 'Upper Lake protection and institutional distribution efficiency.' },
+
+      // Maharashtra
+      { id: 'mumbai', state: 'Maharashtra', name: 'Mumbai', lat: 19.0760, lng: 72.8777, wsi: 74, status: 'Moderate', deficit: '350 MLD', lpcd: 110, desc: 'Monsoon Paradox: 2,400 mm annual rainfall yet 27% NRW loss.' },
+      { id: 'pune', state: 'Maharashtra', name: 'Pune', lat: 18.5204, lng: 73.8567, wsi: 81, status: 'High', deficit: '290 MLD', lpcd: 105, desc: 'Mutha river basin allocation issues and rapid expansion.' },
+
+      // Manipur
+      { id: 'imphal', state: 'Manipur', name: 'Imphal', lat: 24.8170, lng: 93.9368, wsi: 58, status: 'Safe', deficit: '20 MLD', lpcd: 125, desc: 'Loktak lake basin management and valley storage.' },
+
+      // Meghalaya
+      { id: 'shillong', state: 'Meghalaya', name: 'Shillong', lat: 25.5788, lng: 91.8933, wsi: 52, status: 'Safe', deficit: '15 MLD', lpcd: 130, desc: 'Traditional root bridge systems and spring preservation.' },
+
+      // Mizoram
+      { id: 'aizawl', state: 'Mizoram', name: 'Aizawl', lat: 23.7271, lng: 92.7176, wsi: 55, status: 'Safe', deficit: '18 MLD', lpcd: 125, desc: 'Hilly terrain rainwater harvesting tanks.' },
+
+      // Nagaland
+      { id: 'kohima', state: 'Nagaland', name: 'Kohima', lat: 25.6751, lng: 94.1086, wsi: 60, status: 'Low Stress', deficit: '22 MLD', lpcd: 120, desc: 'Springshed management in upland terrains.' },
+
+      // Odisha
+      { id: 'bhubaneswar', state: 'Odisha', name: 'Bhubaneswar', lat: 20.2961, lng: 85.8245, wsi: 69, status: 'Moderate', deficit: '90 MLD', lpcd: 115, desc: 'Mahanadi delta branch allocation and stormwater management.' },
+
+      // Punjab
+      { id: 'ludhiana', state: 'Punjab', name: 'Ludhiana', lat: 30.9010, lng: 75.8573, wsi: 88, status: 'High', deficit: '280 MLD', lpcd: 85, desc: 'Heavy industrial dyeing wastewater discharge into Buddha Dariya.' },
+      { id: 'jalandhar', state: 'Punjab', name: 'Jalandhar', lat: 31.3260, lng: 75.5762, wsi: 83, status: 'High', deficit: '190 MLD', lpcd: 92, desc: 'Over-exploitation of groundwater due to agriculture and sports industry.' },
+      { id: 'amritsar', state: 'Punjab', name: 'Amritsar', lat: 31.6340, lng: 74.8723, wsi: 80, status: 'High', deficit: '210 MLD', lpcd: 95, desc: 'Upper Bari Doab canal dependence.' },
+      { id: 'phagwara', state: 'Punjab', name: 'Phagwara', lat: 31.2244, lng: 75.7708, wsi: 79, status: 'Moderate', deficit: '65 MLD', lpcd: 98, desc: 'Urban expansion pressure on local aquifers.' },
+
+      // Rajasthan
+      { id: 'jaipur', state: 'Rajasthan', name: 'Jaipur', lat: 26.9124, lng: 75.7873, wsi: 86, status: 'High', deficit: '310 MLD', lpcd: 88, desc: 'Semi-arid vulnerability; 198% groundwater extraction; fluoride contamination.' },
+      { id: 'jodhpur', state: 'Rajasthan', name: 'Jodhpur', lat: 26.2389, lng: 73.0243, wsi: 90, status: 'Extreme', deficit: '210 MLD', lpcd: 80, desc: 'Severe arid stress and reliance on Indira Gandhi canal feed.' },
+
+      // Sikkim
+      { id: 'gangtok', state: 'Sikkim', name: 'Gangtok', lat: 27.3389, lng: 88.6065, wsi: 50, status: 'Safe', deficit: '12 MLD', lpcd: 135, desc: 'Glacial fed streams and mountain spring protection.' },
+
+      // Tamil Nadu
+      { id: 'chennai', state: 'Tamil Nadu', name: 'Chennai', lat: 13.0827, lng: 80.2707, wsi: 89, status: 'Extreme', deficit: '520 MLD', lpcd: 82, desc: '2019 Day Zero dried surface reservoirs; saline intrusion 8 km inland.' },
+      { id: 'coimbatore', state: 'Tamil Nadu', name: 'Coimbatore', lat: 11.0168, lng: 76.9558, wsi: 76, status: 'Moderate', deficit: '140 MLD', lpcd: 100, desc: 'Noyyal river restoration projects.' },
+
+      // Telangana
+      { id: 'hyderabad', state: 'Telangana', name: 'Hyderabad', lat: 17.3850, lng: 78.4867, wsi: 82, status: 'High', deficit: '410 MLD', lpcd: 95, desc: 'Cyberabad tech boom depleting Deccan aquifers; Musi river pollution.' },
+
+      // Tripura
+      { id: 'agartala', state: 'Tripura', name: 'Agartala', lat: 23.8315, lng: 91.2868, wsi: 63, status: 'Low Stress', deficit: '30 MLD', lpcd: 120, desc: 'Hilly catchment basins and river water supply.' },
+
+      // Uttar Pradesh
+      { id: 'lucknow', state: 'Uttar Pradesh', name: 'Lucknow', lat: 26.8467, lng: 80.9462, wsi: 80, status: 'High', deficit: '290 MLD', lpcd: 92, desc: 'Gumti river basin stress and rapid urbanization water table drop.' },
+      { id: 'kanpur', state: 'Uttar Pradesh', name: 'Kanpur', lat: 26.4499, lng: 80.3319, wsi: 84, status: 'High', deficit: '310 MLD', lpcd: 89, desc: 'Heavy industrial tanning discharge into Ganga and groundwater stress.' },
+
+      // Uttarakhand
+      { id: 'dehradun', state: 'Uttarakhand', name: 'Dehradun', lat: 30.3165, lng: 78.0322, wsi: 71, status: 'Moderate', deficit: '95 MLD', lpcd: 105, desc: 'Himalayan foothills spring degradation and tourist pressure.' },
+
+      // West Bengal
+      { id: 'kolkata', state: 'West Bengal', name: 'Kolkata', lat: 22.5726, lng: 88.3639, wsi: 74, status: 'Moderate', deficit: '310 MLD', lpcd: 105, desc: 'Hooghly river water treatment and deltaic arsenic contamination issues.' },
+      { id: 'siliguri', state: 'West Bengal', name: 'Siliguri', lat: 26.7271, lng: 88.3953, wsi: 67, status: 'Moderate', deficit: '60 MLD', lpcd: 115, desc: 'Mahananda river basin water access.' },
+
+      // Delhi NCR (UT)
+      { id: 'delhi', state: 'Delhi NCR', name: 'Delhi NCR', lat: 28.6139, lng: 77.2090, wsi: 94, status: 'Extreme', deficit: '780 MLD', lpcd: 90, desc: 'Yamuna BOD > 40 mg/L; groundwater extraction at 135%; extreme inequity.' },
+
+      // Jammu & Kashmir (UT)
+      { id: 'srinagar', state: 'Jammu & Kashmir', name: 'Srinagar', lat: 34.0837, lng: 74.7973, wsi: 59, status: 'Safe', deficit: '40 MLD', lpcd: 125, desc: 'Jhelum basin water sources and Dal lake conservation.' }
+    ];
+
+    // Complete State list with reasons & center coordinates for all 28 States & UTs
+    const statesData = [
+      { name: 'Andhra Pradesh', wsi: 79, lat: 15.9129, lng: 79.7400, reason: 'Coastal salinity intrusion, recurring meteorological droughts, and unmanaged groundwater extraction.' },
+      { name: 'Arunachal Pradesh', wsi: 45, lat: 27.0844, lng: 93.6053, reason: 'Abundant river basins, high annual rainfall, and minimal industrial over-extraction.' },
+      { name: 'Assam', wsi: 52, lat: 26.2006, lng: 92.9376, reason: 'Brahmaputra basin water abundance, though vulnerable to seasonal flooding and localized distribution gaps.' },
+      { name: 'Bihar', wsi: 76, lat: 25.0961, lng: 85.3131, reason: 'Heavy dependence on deep tube wells, arsenic and iron contamination in shallow aquifers.' },
+      { name: 'Chhattisgarh', wsi: 68, lat: 21.2787, lng: 81.8661, reason: 'Plateau region with localized irrigation challenges and industrial water allocation.' },
+      { name: 'Goa', wsi: 62, lat: 15.2993, lng: 74.1240, reason: 'Coastal resources with tourist-season demand peaks and well-dependent rural pockets.' },
+      { name: 'Gujarat', wsi: 83, lat: 22.2587, lng: 71.1924, reason: 'High industrial water demand, salinity ingress in coastal aquifers, and semi-arid climate.' },
+      { name: 'Haryana', wsi: 88, lat: 29.0588, lng: 76.0856, reason: 'Paddy-wheat intensive crop cycle over-extracting groundwater and declining canal flows.' },
+      { name: 'Himachal Pradesh', wsi: 75, lat: 31.1048, lng: 77.1734, reason: 'Reduction in natural spring discharge and high tourist influx during peak summer.' },
+      { name: 'Jharkhand', wsi: 72, lat: 23.6102, lng: 85.2799, reason: 'Undulating hard-rock terrain causing rapid runoff and heavy mining/industrial usage.' },
+      { name: 'Karnataka', wsi: 89, lat: 15.3173, lng: 75.7139, reason: 'Rampant lake encroachment in Bengaluru, inadequate Cauvery inflows, and tanker dependency.' },
+      { name: 'Kerala', wsi: 65, lat: 10.8505, lng: 76.2711, reason: 'Plentiful rainfall but fast runoff in hilly terrains and saltwater intrusion in backwaters.' },
+      { name: 'Madhya Pradesh', wsi: 78, lat: 22.9734, lng: 78.6569, reason: 'Monsoon dependence, check-dam management constraints, and Narmada reliance.' },
+      { name: 'Maharashtra', wsi: 78, lat: 19.7515, lng: 75.7139, reason: 'Regional disparities (Marathwada drought), water-intensive sugarcane farming, and distribution losses.' },
+      { name: 'Manipur', wsi: 58, lat: 24.6637, lng: 93.9063, reason: 'Valley and hill hydro-balance with localized storage and distribution challenges.' },
+      { name: 'Meghalaya', wsi: 48, lat: 25.4670, lng: 91.3662, reason: 'High annual rainfall, though facing dry-season drinking water shortages in uplands.' },
+      { name: 'Mizoram', wsi: 55, lat: 23.1645, lng: 92.9376, reason: 'Hilly terrain relying heavily on community rainwater storage tanks.' },
+      { name: 'Nagaland', wsi: 60, lat: 26.1584, lng: 94.5624, reason: 'Springshed management challenges in mountainous and upland communities.' },
+      { name: 'Odisha', wsi: 70, lat: 20.9517, lng: 85.0985, reason: 'Coastal vulnerability, Mahanadi basin management, and uneven summer availability.' },
+      { name: 'Punjab', wsi: 86, lat: 31.1471, lng: 75.3412, reason: 'Intensive paddy cultivation, severe groundwater table depletion, and industrial pollution.' },
+      { name: 'Rajasthan', wsi: 91, lat: 27.0238, lng: 74.2179, reason: 'Arid climate, extreme evaporation, fluoride contamination, and distant canal dependence.' },
+      { name: 'Sikkim', wsi: 50, lat: 27.5330, lng: 88.5122, reason: 'Glacial fed streams facing mountain spring degradation due to changing weather.' },
+      { name: 'Tamil Nadu', wsi: 87, lat: 11.1271, lng: 78.6569, reason: 'Monsoon variability, tank-system degradation, and coastal saline intrusion.' },
+      { name: 'Telangana', wsi: 80, lat: 17.3850, lng: 78.4867, reason: 'Rapid urbanization in Hyderabad and depletion of hard-rock Deccan aquifers.' },
+      { name: 'Tripura', wsi: 64, lat: 23.9408, lng: 91.9882, reason: 'Hilly terrain with localized river catchment management needs.' },
+      { name: 'Uttar Pradesh', wsi: 82, lat: 26.8467, lng: 80.9462, reason: 'Over-extraction in western districts, heavy metal pollution, and wastewater treatment gaps.' },
+      { name: 'Uttarakhand', wsi: 71, lat: 30.0668, lng: 79.0193, reason: 'Glacial retreat, Himalayan spring degradation, and heavy tourism seasonal load.' },
+      { name: 'West Bengal', wsi: 74, lat: 22.9868, lng: 87.8550, reason: 'Arsenic contamination in groundwater, deltaic stress, and coastal salinity.' },
+      { name: 'Delhi NCR', wsi: 94, lat: 28.6139, lng: 77.2090, reason: 'High population density, Yamuna river pollution, unmetered extraction, and tanker mafias.' },
+      { name: 'Jammu & Kashmir', wsi: 59, lat: 33.7782, lng: 76.5762, reason: 'Himalayan water resource governance and winter freezing preservation needs.' }
+    ];
+
+    let currentCity = citiesData[0];
+    let map, markers = {};
+
+    function initMap() {
+      map = L.map('map', { zoomControl: false }).setView([22.5937, 78.9629], 5);
+
+      // Esri Satellite Clear View Tiles
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, USGS, NOAA',
+        maxZoom: 18
+      }).addTo(map);
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      // Create All City Markers
+      citiesData.forEach(city => {
+        let badgeColor = city.wsi >= 90 ? '#ef4444' : city.wsi >= 80 ? '#f59e0b' : '#38bdf8';
+        
+        let customIcon = L.divIcon({
+          className: 'custom-div-icon',
+          html: `<div style="background-color: ${badgeColor}; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: #000; box-shadow: 0 0 12px ${badgeColor};">${city.wsi}</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
+        });
+
+        let marker = L.marker([city.lat, city.lng], { icon: customIcon });
+        
+        marker.bindPopup(`
+          <div>
+            <h3>${city.name} (${city.state})</h3>
+            <p><strong>WSI Score:</strong> ${city.wsi}/100 | <strong>Status:</strong> ${city.status}</p>
+            <p>${city.desc}</p>
+            <button onclick="selectCity('${city.id}')" style="margin-top: 8px; background: #38bdf8; border: none; padding: 5px 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">Analyze</button>
+          </div>
+        `);
+
+        markers[city.id] = marker;
+        marker.addTo(map);
+      });
+
+      renderLists();
+      selectCity('bengaluru');
+    }
+
+    function renderLists(filterState = null) {
+      // 1. Render Cities in Sidebar (Filtered strictly by selected State)
+      const cityListEl = document.getElementById('citySelectList');
+      cityListEl.innerHTML = '';
+      
+      let displayedCities = filterState ? citiesData.filter(c => c.state === filterState) : citiesData;
+
+      if(displayedCities.length === 0) {
+        cityListEl.innerHTML = `<div style="padding: 10px; font-size: 0.8rem; color: var(--text-muted);">No major urban hotspots cataloged for this state yet.</div>`;
+      } else {
+        displayedCities.forEach(city => {
+          let badgeClass = city.wsi >= 90 ? 'wsi-extreme' : city.wsi >= 80 ? 'wsi-high' : 'wsi-moderate';
+          let pill = document.createElement('div');
+          pill.className = `city-pill ${city.id === currentCity.id ? 'active' : ''}`;
+          pill.id = `pill-${city.id}`;
+          pill.innerHTML = `
+            <div>
+              <span class="city-pill-name">${city.name}</span>
+              <div style="font-size: 0.68rem; color: var(--text-muted);">${city.state}</div>
+            </div>
+            <span class="wsi-badge ${badgeClass}">${city.wsi}</span>
+          `;
+          pill.onclick = () => {
+            switchPage('mapPage', document.querySelectorAll('.tab-btn')[1]);
+            selectCity(city.id);
+          };
+          cityListEl.appendChild(pill);
+        });
+      }
+
+      // 2. Update Map Markers visibility (Show only selected state cities)
+      citiesData.forEach(city => {
+        let marker = markers[city.id];
+        if (marker) {
+          if (!filterState || city.state === filterState) {
+            marker.addTo(map);
+          } else {
+            map.removeLayer(marker);
+          }
+        }
+      });
+
+      // 3. Show/Hide State Scarcity Reason Box
+      const reasonBox = document.getElementById('selectedStateReason');
+      if (filterState) {
+        let stObj = statesData.find(s => s.name === filterState);
+        if (stObj && stObj.reason) {
+          reasonBox.style.display = 'block';
+          reasonBox.innerHTML = `<strong><i class="fa-solid fa-circle-info"></i> ${stObj.name} Scarcity Reason:</strong><br>${stObj.reason}`;
+        } else {
+          reasonBox.style.display = 'none';
+        }
+      } else {
+        reasonBox.style.display = 'none';
+      }
+
+      // 4. Render States List
+      const stateListEl = document.getElementById('stateSelectList');
+      stateListEl.innerHTML = '';
+      
+      let allItem = document.createElement('div');
+      allItem.className = `city-pill ${!filterState ? 'active' : ''}`;
+      allItem.style.cursor = 'pointer';
+      allItem.innerHTML = `<span class="city-pill-name" style="font-size: 0.82rem;"><i class="fa-solid fa-globe" style="color: var(--accent); margin-right: 4px;"></i> Show All India</span>`;
+      allItem.onclick = () => {
+        renderLists(null);
+        if(map) map.setView([22.5937, 78.9629], 5);
+      };
+      stateListEl.appendChild(allItem);
+
+      statesData.forEach(st => {
+        let badgeClass = st.wsi >= 90 ? 'wsi-extreme' : st.wsi >= 80 ? 'wsi-high' : 'wsi-moderate';
+        let item = document.createElement('div');
+        item.className = `city-pill ${filterState === st.name ? 'active' : ''}`;
+        item.style.cursor = 'pointer';
+        item.innerHTML = `
+          <span class="city-pill-name" style="font-size: 0.82rem;"><i class="fa-solid fa-map-pin" style="color: var(--accent); margin-right: 4px;"></i> ${st.name}</span>
+          <span class="wsi-badge ${badgeClass}">${st.wsi}</span>
+        `;
+        item.onclick = () => {
+          switchPage('mapPage', document.querySelectorAll('.tab-btn')[1]);
+          renderLists(st.name); 
+          if(map) map.flyTo([st.lat, st.lng], 7, { animate: true, duration: 1.2 });
+        };
+        stateListEl.appendChild(item);
+      });
+    }
+
+    function selectCity(cityId) {
+      currentCity = citiesData.find(c => c.id === cityId);
+      
+      document.querySelectorAll('.city-pill').forEach(p => p.classList.remove('active'));
+      let activePill = document.getElementById(`pill-${cityId}`);
+      if (activePill) activePill.classList.add('active');
+
+      if (map) {
+        map.flyTo([currentCity.lat, currentCity.lng], 8, { animate: true, duration: 1.2 });
+        if (markers[cityId]) markers[cityId].openPopup();
+      }
+
+      document.getElementById('statCityName').textContent = currentCity.name;
+      document.getElementById('statWSI').textContent = `${currentCity.wsi} / 100`;
+      document.getElementById('statDeficit').textContent = currentCity.deficit;
+      
+      runSimulation();
+    }
+
+    function runSimulation() {
+      let rwh = parseInt(document.getElementById('sliderRWH').value);
+      let recycle = parseInt(document.getElementById('sliderRecycle').value);
+      let leak = parseInt(document.getElementById('sliderLeak').value);
+
+      document.getElementById('rwhVal').textContent = rwh;
+      document.getElementById('recycleVal').textContent = recycle;
+      document.getElementById('leakVal').textContent = leak;
+
+      let mitigationFactor = (rwh * 0.25) + (recycle * 0.30) + (leak * 0.20);
+      let simulatedWSI = Math.max(35, Math.round(currentCity.wsi - (mitigationFactor * 0.4)));
+      let simulatedLPCD = Math.min(145, Math.round(currentCity.lpcd + (mitigationFactor * 0.6)));
+
+      document.getElementById('statWSI').textContent = `${simulatedWSI} / 100`;
+      document.getElementById('statLPCD').textContent = `${simulatedLPCD} LPCD`;
+
+      let wsiEl = document.getElementById('statWSI');
+      if (simulatedWSI >= 85) wsiEl.className = 'stat-card-val danger';
+      else if (simulatedWSI >= 65) wsiEl.className = 'stat-card-val';
+      else wsiEl.className = 'stat-card-val success';
+    }
+
+    window.onload = initMap;
+  </script>
+</body>
+</html>
